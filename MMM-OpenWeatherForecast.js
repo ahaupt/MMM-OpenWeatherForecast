@@ -56,7 +56,9 @@ Module.register("MMM-OpenWeatherForecast", {
     requestDelay: 0,
     language: config.language,
     units: "metric",
+    showTempUnit: false,
     displayKmhForWind: false,
+    displayBeaufortForWind: false,
     concise: true,
     iconset: "1c",
     colored: true,
@@ -366,7 +368,7 @@ Module.register("MMM-OpenWeatherForecast", {
 
     return {
       "currently" : {
-        temperature: this.config.showFeelsLikeTemp ? Math.round(this.weatherData.current.feels_like) + "°" : Math.round(this.weatherData.current.temp) + "°",
+        temperature: this.config.showFeelsLikeTemp ? Math.round(this.weatherData.current.feels_like) + this.formatTempUnit() : Math.round(this.weatherData.current.temp) + this.formatTempUnit(),
         animatedIconId: this.config.useAnimatedIcons ? this.addIcon(this.iconMap[this.weatherData.current.weather[0].icon], true) : null,
         iconPath: this.generateIconSrc(this.iconMap[this.weatherData.current.weather[0].icon]),
         tempRange: this.formatHiLowTemperature(this.weatherData.daily[0].temp.max,this.weatherData.daily[0].temp.min),
@@ -376,7 +378,7 @@ Module.register("MMM-OpenWeatherForecast", {
         sunset: moment(this.weatherData.current.sunset * 1000).format(this.config.label_sunriseTimeFormat),
         pressure: Math.round(this.weatherData.current.pressure / 10) + " kPa",
         humidity: Math.round(this.weatherData.current.humidity) + "%",
-        dewPoint: Math.round(this.weatherData.current.dew_point) + "°",
+        dewPoint: Math.round(this.weatherData.current.dew_point) + this.formatTempUnit(),
         uvIndex: Math.round(this.weatherData.current.uvi),
         visibility: Math.round(this.weatherData.current.visibility / 1000) + " km"
       },
@@ -417,10 +419,10 @@ Module.register("MMM-OpenWeatherForecast", {
     // --------- Temperature ---------
 
     if (type == "hourly" && this.config.showFeelsLikeTemp) { //just display projected temperature for that hour
-      fItem.temperature = Math.round(fData.feels_like) + "°";
+      fItem.temperature = Math.round(fData.feels_like) + this.formatTempUnit();
 
     } else if(type == "hourly" && !this.config.showFeelsLikeTemp) {
-      fItem.temperature = Math.round(fData.temp) + "°";
+      fItem.temperature = Math.round(fData.temp) + this.formatTempUnit();
 
     } else { //display High / Low temperatures
       fItem.tempRange = this.formatHiLowTemperature(fData.temp.max,fData.temp.min);
@@ -447,7 +449,7 @@ Module.register("MMM-OpenWeatherForecast", {
     fItem.humidity = Math.round(fData.humidity) + "%";
 
     // --------- Dew Point -------------
-    fItem.dewPoint = Math.round(fData.dew_point) + "°";
+    fItem.dewPoint = Math.round(fData.dew_point) + this.formatTempUnit();
 
     // --------- UV Index -------------
     fItem.uvIndex = Math.round(fData.uvi);
@@ -465,8 +467,8 @@ Module.register("MMM-OpenWeatherForecast", {
    */
   formatHiLowTemperature: function(h,l) {
     return {
-      high: (!this.config.concise ? this.config.label_high + " " : "") + Math.round(h) + "°",
-      low: (!this.config.concise ? this.config.label_low + " " : "") + Math.round(l) + "°"
+      high: (!this.config.concise ? this.config.label_high + " " : "") + Math.round(h) + this.formatTempUnit(),
+      low: (!this.config.concise ? this.config.label_low + " " : "") + Math.round(l) + this.formatTempUnit()
     };
   },
 
@@ -503,17 +505,22 @@ Module.register("MMM-OpenWeatherForecast", {
       conversionFactor = 3.6;
     }
 
-    //wind gust
-    var windGust = null;
-    if (!this.config.concise && gust) {
-      windGust = " (" + this.config.label_maximum + " " + Math.round(gust * conversionFactor) + " " + this.getUnit("windSpeed") + ")";
-    }    
+    if (this.config.displayBeaufortForWind) {
+      speed = Math.round(Math.pow(speed/0.836,  2/3));
+      gust = Math.round(Math.pow(gust/0.836,  2/3));
+    }
 
     return {
-      windSpeed: Math.round(speed * conversionFactor) + " " + this.getUnit("windSpeed") + (!this.config.concise ? " " + this.getOrdinal(bearing) : ""),
-      windGust: windGust
+      windSpeed: Math.round(speed * conversionFactor) + (gust ? '-' + Math.round(gust * conversionFactor) : '') + " " + this.getUnit("windSpeed") + (!this.config.concise ? " " + this.getOrdinal(bearing) : ""),
+      windGust: 0
     };
   },
+
+  formatTempUnit: function() {
+     return this.config.showTempUnit ?
+        '°' + this.units.temperature[this.config.units] :
+        '°';
+  },   
 
   /*
     Returns the units in use for the data pull from Dark Sky
@@ -522,6 +529,8 @@ Module.register("MMM-OpenWeatherForecast", {
 
     if (metric == "windSpeed" && this.config.units != "imperial" && this.config.displayKmhForWind) {
       return "km/h"
+    } else if (metric == "windSpeed" && this.config.displayBeaufortForWind) {
+      return ""
     } else {
       return this.units[metric][this.config.units];
     }
@@ -551,8 +560,14 @@ Module.register("MMM-OpenWeatherForecast", {
       metric: "cm",
       imperial: "in"
     },
+    temperature: {
+      standard: "C",
+      metric: "C",
+      imperial: "F"
+    },
     windSpeed: {
       standard: "m/s",
+      beaufort: "",
       metric: "m/s",
       imperial: "mph"
     }
