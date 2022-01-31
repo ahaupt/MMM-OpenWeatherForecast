@@ -511,7 +511,7 @@ Module.register("MMM-OpenWeatherForecast", {
     }
 
     return {
-      windSpeed: Math.round(speed * conversionFactor) + (gust ? '-' + Math.round(gust * conversionFactor) : '') + " " + this.getUnit("windSpeed") + (!this.config.concise ? " " + this.getOrdinal(bearing) : ""),
+      windSpeed: Math.round(speed * conversionFactor) + (gust && gust != speed ? '-' + Math.round(gust * conversionFactor) : '') + " " + this.getUnit("windSpeed") + (!this.config.concise ? " " + this.getOrdinal(bearing) : ""),
       windGust: 0
     };
   },
